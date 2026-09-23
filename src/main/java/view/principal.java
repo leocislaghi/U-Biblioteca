@@ -12,13 +12,14 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import model.conexao;
 /**
  *
  * @author leoci
  */
-public class login extends javax.swing.JFrame {
+public class principal extends javax.swing.JFrame {
 
-    public login() {
+    public principal() {
         initComponents();
         
         // 1. Configurações Globais da Janela
@@ -565,14 +566,18 @@ public class login extends javax.swing.JFrame {
         return btn;
     }
 
-    public static void main(String args[]) {
+   public static void main(String args[]) {
         try {
             FlatLightLaf.setup();
         } catch (Exception e) {
             e.printStackTrace();
         }
 
-        java.awt.EventQueue.invokeLater(() -> new login().setVisible(true));
+        // Inicializa e cria as tabelas do SQLite no banco
+        conexao.inicializarBanco();
+
+        // Abre a tela principal
+        java.awt.EventQueue.invokeLater(() -> new principal().setVisible(true));
     }
 
     // <editor-fold defaultstate="collapsed" desc="Generated Code">                                               
