@@ -1,11 +1,7 @@
 package view;
 
 import com.formdev.flatlaf.FlatLightLaf;
-import model.alunoDAO;
-import model.autorDAO;
-import model.livroDAO;
-import model.emprestimoDAO;
-import model.conexao;
+import model.*;
 
 import java.awt.*;
 import java.util.List;
@@ -53,14 +49,13 @@ public class principal extends javax.swing.JFrame {
     private JTable tabelaEmprestimos;
 
     public principal() {
-        // 1. Configurações Globais da Janela
         setTitle("Biblioteca Central - SISTEMA DE GESTÃO");
         setSize(1200, 780);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // 2. Header Superior (Barra Escura)
+        // Header Superior
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(Color.decode("#0F172A"));
         header.setPreferredSize(new Dimension(1200, 52));
@@ -78,7 +73,7 @@ public class principal extends javax.swing.JFrame {
         header.add(userLabel, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
-        // 3. Sistema de Abas
+        // Sistema de Abas
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 13));
         tabbedPane.setBackground(Color.decode("#F1F5F9"));
@@ -88,13 +83,12 @@ public class principal extends javax.swing.JFrame {
         tabbedPane.addTab("   Livros   ", criarPainelLivros());
         tabbedPane.addTab("   Empréstimos   ", criarPainelEmprestimos());
 
-        // Recarrega dropdowns e tabelas ao alternar as abas
         tabbedPane.addChangeListener(e -> {
             int aba = tabbedPane.getSelectedIndex();
-            if (aba == 2) { // Livros
+            if (aba == 2) {
                 carregarAutoresNoComboBox();
                 atualizarTabelaLivros();
-            } else if (aba == 3) { // Empréstimos
+            } else if (aba == 3) {
                 carregarAlunosELivrosEmprestimo();
                 atualizarTabelaEmprestimos();
             }
@@ -126,7 +120,6 @@ public class principal extends javax.swing.JFrame {
         JButton btnExcluir = estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626"));
         JButton btnLimpar = estilarBotao(new JButton("Limpar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
 
-        // AÇÃO SALVAR
         btnSalvar.addActionListener(e -> {
             String matricula = txtMatricula.getText().trim();
             String nome = txtNome.getText().trim();
@@ -146,19 +139,12 @@ public class principal extends javax.swing.JFrame {
             }
         });
 
-        // AÇÃO EDITAR
         btnEditar.addActionListener(e -> {
             if (idAlunoSelecionado == -1) {
                 JOptionPane.showMessageDialog(this, "Selecione um aluno na tabela para editar!", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
-            String matricula = txtMatricula.getText().trim();
-            String nome = txtNome.getText().trim();
-            String email = txtEmail.getText().trim();
-            String telefone = txtTelefone.getText().trim();
-
-            if (alunoDAO.editarAluno(idAlunoSelecionado, matricula, nome, email, telefone)) {
+            if (alunoDAO.editarAluno(idAlunoSelecionado, txtMatricula.getText().trim(), txtNome.getText().trim(), txtEmail.getText().trim(), txtTelefone.getText().trim())) {
                 JOptionPane.showMessageDialog(this, "Aluno atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAluno();
                 atualizarTabelaAlunos();
@@ -166,21 +152,17 @@ public class principal extends javax.swing.JFrame {
             }
         });
 
-        // AÇÃO EXCLUIR
         btnExcluir.addActionListener(e -> {
             if (idAlunoSelecionado == -1) {
                 JOptionPane.showMessageDialog(this, "Selecione um aluno na tabela para excluir!", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-
             int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este aluno?", "Confirmação", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION) {
-                if (alunoDAO.excluirAluno(idAlunoSelecionado)) {
-                    JOptionPane.showMessageDialog(this, "Aluno excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-                    limparCamposAluno();
-                    atualizarTabelaAlunos();
-                    carregarAlunosELivrosEmprestimo();
-                }
+            if (confirm == JOptionPane.YES_OPTION && alunoDAO.excluirAluno(idAlunoSelecionado)) {
+                JOptionPane.showMessageDialog(this, "Aluno excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                limparCamposAluno();
+                atualizarTabelaAlunos();
+                carregarAlunosELivrosEmprestimo();
             }
         });
 
@@ -196,7 +178,6 @@ public class principal extends javax.swing.JFrame {
         gbc.gridy = 10; gbc.insets = new Insets(24, 0, 0, 0);
         formCard.add(btnPanel, gbc);
 
-        // Tabela Card
         JPanel tableCard = criarCardTranslucido();
         tableCard.setLayout(new BorderLayout(16, 16));
 
@@ -211,13 +192,6 @@ public class principal extends javax.swing.JFrame {
         };
 
         tabelaAlunos = criarTabelaEstilizadaComModel(modelTabelaAlunos);
-        tabelaAlunos.getColumnModel().getColumn(0).setPreferredWidth(45);
-        tabelaAlunos.getColumnModel().getColumn(1).setPreferredWidth(95);
-        tabelaAlunos.getColumnModel().getColumn(2).setPreferredWidth(160);
-        tabelaAlunos.getColumnModel().getColumn(3).setPreferredWidth(190);
-        tabelaAlunos.getColumnModel().getColumn(4).setPreferredWidth(110);
-
-        // EVENTO DE SELEÇÃO NA TABELA DE ALUNOS
         tabelaAlunos.getSelectionModel().addListSelectionListener(e -> {
             int linha = tabelaAlunos.getSelectedRow();
             if (linha != -1) {
@@ -261,20 +235,56 @@ public class principal extends javax.swing.JFrame {
         adicionarCampoEstilizado(formCard, "Nacionalidade", txtNacionalidadeAutor, gbc, 4);
 
         JButton btnSalvar = estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE);
+        JButton btnEditar = estilarBotao(new JButton("Editar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
+        JButton btnExcluir = estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626"));
+        JButton btnLimpar = estilarBotao(new JButton("Limpar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
+
         btnSalvar.addActionListener(e -> {
             String nome = txtNomeAutor.getText().trim();
             String nacionalidade = txtNacionalidadeAutor.getText().trim();
             if (!nome.isEmpty() && autorDAO.salvarAutor(nome, nacionalidade)) {
                 JOptionPane.showMessageDialog(this, "Autor cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
-                txtNomeAutor.setText(""); txtNacionalidadeAutor.setText("");
+                limparCamposAutor();
                 atualizarTabelaAutores();
                 carregarAutoresNoComboBox();
             }
         });
 
-        JPanel btnPanel = new JPanel(new GridLayout(1, 1, 6, 0));
+        btnEditar.addActionListener(e -> {
+            if (idAutorSelecionado == -1) {
+                JOptionPane.showMessageDialog(this, "Selecione um autor na tabela para editar!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            if (autorDAO.editarAutor(idAutorSelecionado, txtNomeAutor.getText().trim(), txtNacionalidadeAutor.getText().trim())) {
+                JOptionPane.showMessageDialog(this, "Autor atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                limparCamposAutor();
+                atualizarTabelaAutores();
+                carregarAutoresNoComboBox();
+            }
+        });
+
+        btnExcluir.addActionListener(e -> {
+            if (idAutorSelecionado == -1) {
+                JOptionPane.showMessageDialog(this, "Selecione um autor na tabela para excluir!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este autor?", "Confirmação", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION && autorDAO.excluirAutor(idAutorSelecionado)) {
+                JOptionPane.showMessageDialog(this, "Autor excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                limparCamposAutor();
+                atualizarTabelaAutores();
+                carregarAutoresNoComboBox();
+            }
+        });
+
+        btnLimpar.addActionListener(e -> limparCamposAutor());
+
+        JPanel btnPanel = new JPanel(new GridLayout(1, 4, 6, 0));
         btnPanel.setBackground(Color.WHITE);
         btnPanel.add(btnSalvar);
+        btnPanel.add(btnEditar);
+        btnPanel.add(btnExcluir);
+        btnPanel.add(btnLimpar);
 
         gbc.gridy = 6; gbc.insets = new Insets(24, 0, 0, 0);
         formCard.add(btnPanel, gbc);
@@ -288,6 +298,14 @@ public class principal extends javax.swing.JFrame {
         };
 
         tabelaAutores = criarTabelaEstilizadaComModel(modelTabelaAutores);
+        tabelaAutores.getSelectionModel().addListSelectionListener(e -> {
+            int linha = tabelaAutores.getSelectedRow();
+            if (linha != -1) {
+                idAutorSelecionado = Integer.parseInt(tabelaAutores.getValueAt(linha, 0).toString());
+                txtNomeAutor.setText(tabelaAutores.getValueAt(linha, 1).toString());
+                txtNacionalidadeAutor.setText(tabelaAutores.getValueAt(linha, 2) != null ? tabelaAutores.getValueAt(linha, 2).toString() : "");
+            }
+        });
 
         JScrollPane scroll = new JScrollPane(tabelaAutores);
         scroll.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1));
@@ -329,6 +347,10 @@ public class principal extends javax.swing.JFrame {
         adicionarComponenteEstilizado(formCard, "Autor", cbAutorLivro, gbc, 10);
 
         JButton btnSalvar = estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE);
+        JButton btnEditar = estilarBotao(new JButton("Editar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
+        JButton btnExcluir = estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626"));
+        JButton btnLimpar = estilarBotao(new JButton("Limpar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
+
         btnSalvar.addActionListener(e -> {
             if (txtTituloLivro.getText().trim().isEmpty() || cbAutorLivro.getSelectedItem() == null) {
                 JOptionPane.showMessageDialog(this, "Preencha o Título e selecione um Autor!", "Aviso", JOptionPane.WARNING_MESSAGE);
@@ -351,9 +373,50 @@ public class principal extends javax.swing.JFrame {
             }
         });
 
-        JPanel btnPanel = new JPanel(new GridLayout(1, 1, 6, 0));
+        btnEditar.addActionListener(e -> {
+            if (idLivroSelecionado == -1) {
+                JOptionPane.showMessageDialog(this, "Selecione um livro na tabela para editar!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            try {
+                String selecaoAutor = (String) cbAutorLivro.getSelectedItem();
+                int autorId = Integer.parseInt(selecaoAutor.split(" - ")[0]);
+                int ano = txtAnoLivro.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtAnoLivro.getText().trim());
+                int estoque = txtQtdEstoque.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtQtdEstoque.getText().trim());
+
+                if (livroDAO.editarLivro(idLivroSelecionado, txtTituloLivro.getText().trim(), txtIsbnLivro.getText().trim(), ano, estoque, autorId)) {
+                    JOptionPane.showMessageDialog(this, "Livro atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                    limparCamposLivro();
+                    atualizarTabelaLivros();
+                    carregarAlunosELivrosEmprestimo();
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao atualizar livro!", "Erro", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        btnExcluir.addActionListener(e -> {
+            if (idLivroSelecionado == -1) {
+                JOptionPane.showMessageDialog(this, "Selecione um livro na tabela para excluir!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este livro?", "Confirmação", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION && livroDAO.excluirLivro(idLivroSelecionado)) {
+                JOptionPane.showMessageDialog(this, "Livro excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                limparCamposLivro();
+                atualizarTabelaLivros();
+                carregarAlunosELivrosEmprestimo();
+            }
+        });
+
+        btnLimpar.addActionListener(e -> limparCamposLivro());
+
+        JPanel btnPanel = new JPanel(new GridLayout(1, 4, 6, 0));
         btnPanel.setBackground(Color.WHITE);
         btnPanel.add(btnSalvar);
+        btnPanel.add(btnEditar);
+        btnPanel.add(btnExcluir);
+        btnPanel.add(btnLimpar);
 
         gbc.gridy = 12; gbc.insets = new Insets(24, 0, 0, 0);
         formCard.add(btnPanel, gbc);
@@ -367,6 +430,17 @@ public class principal extends javax.swing.JFrame {
         };
 
         tabelaLivros = criarTabelaEstilizadaComModel(modelTabelaLivros);
+        tabelaLivros.getSelectionModel().addListSelectionListener(e -> {
+            int linha = tabelaLivros.getSelectedRow();
+            if (linha != -1) {
+                idLivroSelecionado = Integer.parseInt(tabelaLivros.getValueAt(linha, 0).toString());
+                txtTituloLivro.setText(tabelaLivros.getValueAt(linha, 1).toString());
+                txtIsbnLivro.setText(tabelaLivros.getValueAt(linha, 2) != null ? tabelaLivros.getValueAt(linha, 2).toString() : "");
+                txtAnoLivro.setText(tabelaLivros.getValueAt(linha, 3).toString());
+                txtQtdEstoque.setText(tabelaLivros.getValueAt(linha, 4).toString());
+            }
+        });
+
         JScrollPane scroll = new JScrollPane(tabelaLivros);
         scroll.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1));
         scroll.getViewport().setBackground(Color.WHITE);
@@ -466,7 +540,7 @@ public class principal extends javax.swing.JFrame {
     }
 
     // ==========================================
-    // MÉTODOS AUXILIARES E CONEXÕES BANCO
+    // MÉTODOS AUXILIARES
     // ==========================================
     private void carregarAlunosELivrosEmprestimo() {
         cbAlunoEmprestimo.removeAllItems();
@@ -537,6 +611,13 @@ public class principal extends javax.swing.JFrame {
         txtEmail.setText("");
         txtTelefone.setText("");
         if (tabelaAlunos != null) tabelaAlunos.clearSelection();
+    }
+
+    private void limparCamposAutor() {
+        idAutorSelecionado = -1;
+        txtNomeAutor.setText("");
+        txtNacionalidadeAutor.setText("");
+        if (tabelaAutores != null) tabelaAutores.clearSelection();
     }
 
     private void limparCamposLivro() {
