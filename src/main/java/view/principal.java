@@ -1,27 +1,58 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
 package view;
 
 import com.formdev.flatlaf.FlatLightLaf;
+import model.alunoDAO;
+import model.autorDAO;
+import model.livroDAO;
+import model.emprestimoDAO;
+import model.conexao;
+
 import java.awt.*;
+import java.util.List;
 import javax.swing.*;
 import javax.swing.border.CompoundBorder;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
-import model.conexao;
-/**
- *
- * @author leoci
- */
+
 public class principal extends javax.swing.JFrame {
 
+    // --- CAMPOS ABA ALUNOS ---
+    private JTextField txtMatricula = new JTextField();
+    private JTextField txtNome = new JTextField();
+    private JTextField txtEmail = new JTextField();
+    private JTextField txtTelefone = new JTextField();
+    private DefaultTableModel modelTabelaAlunos;
+    private JTable tabelaAlunos;
+    private int idAlunoSelecionado = -1;
+
+    // --- CAMPOS ABA AUTORES ---
+    private JTextField txtNomeAutor = new JTextField();
+    private JTextField txtNacionalidadeAutor = new JTextField();
+    private DefaultTableModel modelTabelaAutores;
+    private JTable tabelaAutores;
+    private int idAutorSelecionado = -1;
+
+    // --- CAMPOS ABA LIVROS ---
+    private JTextField txtTituloLivro = new JTextField();
+    private JTextField txtIsbnLivro = new JTextField();
+    private JTextField txtAnoLivro = new JTextField();
+    private JTextField txtQtdEstoque = new JTextField();
+    private JComboBox<String> cbAutorLivro = new JComboBox<>();
+    private DefaultTableModel modelTabelaLivros;
+    private JTable tabelaLivros;
+    private int idLivroSelecionado = -1;
+
+    // --- CAMPOS ABA EMPRÉSTIMOS ---
+    private JComboBox<String> cbAlunoEmprestimo = new JComboBox<>();
+    private JComboBox<String> cbLivroEmprestimo = new JComboBox<>();
+    private JTextField txtDataEmprestimo = new JTextField("23/09/2026");
+    private JTextField txtDataDevolucao = new JTextField("07/10/2026");
+    private DefaultTableModel modelTabelaEmprestimos;
+    private JTable tabelaEmprestimos;
+
     public principal() {
-        initComponents();
-        
         // 1. Configurações Globais da Janela
         setTitle("Biblioteca Central - SISTEMA DE GESTÃO");
         setSize(1200, 780);
@@ -47,7 +78,7 @@ public class principal extends javax.swing.JFrame {
         header.add(userLabel, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
-        // 3. Sistema de Abas Integrado
+        // 3. Sistema de Abas
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 13));
         tabbedPane.setBackground(Color.decode("#F1F5F9"));
@@ -56,6 +87,18 @@ public class principal extends javax.swing.JFrame {
         tabbedPane.addTab("   Autores   ", criarPainelAutores());
         tabbedPane.addTab("   Livros   ", criarPainelLivros());
         tabbedPane.addTab("   Empréstimos   ", criarPainelEmprestimos());
+
+        // Recarrega dropdowns e tabelas ao alternar as abas
+        tabbedPane.addChangeListener(e -> {
+            int aba = tabbedPane.getSelectedIndex();
+            if (aba == 2) { // Livros
+                carregarAutoresNoComboBox();
+                atualizarTabelaLivros();
+            } else if (aba == 3) { // Empréstimos
+                carregarAlunosELivrosEmprestimo();
+                atualizarTabelaEmprestimos();
+            }
+        });
 
         add(tabbedPane, BorderLayout.CENTER);
     }
@@ -68,29 +111,92 @@ public class principal extends javax.swing.JFrame {
         mainPanel.setBackground(Color.decode("#F1F5F9"));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // Formulário
         JPanel formCard = criarCardTranslucido();
         formCard.setPreferredSize(new Dimension(360, 0));
-
         GridBagConstraints gbc = criarGBCBase();
-        
+
         adicionarTituloECorpo(formCard, "Dados do aluno", "Preencha os dados para incluir ou editar um aluno.", gbc);
-        adicionarCampoEstilizado(formCard, "Matrícula:", new JTextField(), gbc, 2);
-        adicionarCampoEstilizado(formCard, "Nome Completo:", new JTextField(), gbc, 4);
-        adicionarCampoEstilizado(formCard, "E-mail:", new JTextField(), gbc, 6);
-        adicionarCampoEstilizado(formCard, "Telefone:", new JTextField(), gbc, 8);
+        adicionarCampoEstilizado(formCard, "Matrícula:", txtMatricula, gbc, 2);
+        adicionarCampoEstilizado(formCard, "Nome Completo:", txtNome, gbc, 4);
+        adicionarCampoEstilizado(formCard, "E-mail:", txtEmail, gbc, 6);
+        adicionarCampoEstilizado(formCard, "Telefone:", txtTelefone, gbc, 8);
+
+        JButton btnSalvar = estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE);
+        JButton btnEditar = estilarBotao(new JButton("Editar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
+        JButton btnExcluir = estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626"));
+        JButton btnLimpar = estilarBotao(new JButton("Limpar"), Color.decode("#F8FAFC"), Color.decode("#334155"));
+
+        // AÇÃO SALVAR
+        btnSalvar.addActionListener(e -> {
+            String matricula = txtMatricula.getText().trim();
+            String nome = txtNome.getText().trim();
+            String email = txtEmail.getText().trim();
+            String telefone = txtTelefone.getText().trim();
+
+            if (matricula.isEmpty() || nome.isEmpty()) {
+                JOptionPane.showMessageDialog(this, "Preencha os campos obrigatórios (Matrícula e Nome)!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            if (alunoDAO.salvarAluno(matricula, nome, email, telefone)) {
+                JOptionPane.showMessageDialog(this, "Aluno cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                limparCamposAluno();
+                atualizarTabelaAlunos();
+                carregarAlunosELivrosEmprestimo();
+            }
+        });
+
+        // AÇÃO EDITAR
+        btnEditar.addActionListener(e -> {
+            if (idAlunoSelecionado == -1) {
+                JOptionPane.showMessageDialog(this, "Selecione um aluno na tabela para editar!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            String matricula = txtMatricula.getText().trim();
+            String nome = txtNome.getText().trim();
+            String email = txtEmail.getText().trim();
+            String telefone = txtTelefone.getText().trim();
+
+            if (alunoDAO.editarAluno(idAlunoSelecionado, matricula, nome, email, telefone)) {
+                JOptionPane.showMessageDialog(this, "Aluno atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                limparCamposAluno();
+                atualizarTabelaAlunos();
+                carregarAlunosELivrosEmprestimo();
+            }
+        });
+
+        // AÇÃO EXCLUIR
+        btnExcluir.addActionListener(e -> {
+            if (idAlunoSelecionado == -1) {
+                JOptionPane.showMessageDialog(this, "Selecione um aluno na tabela para excluir!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este aluno?", "Confirmação", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) {
+                if (alunoDAO.excluirAluno(idAlunoSelecionado)) {
+                    JOptionPane.showMessageDialog(this, "Aluno excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                    limparCamposAluno();
+                    atualizarTabelaAlunos();
+                    carregarAlunosELivrosEmprestimo();
+                }
+            }
+        });
+
+        btnLimpar.addActionListener(e -> limparCamposAluno());
 
         JPanel btnPanel = new JPanel(new GridLayout(1, 4, 6, 0));
         btnPanel.setBackground(Color.WHITE);
-        btnPanel.add(estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE));
-        btnPanel.add(estilarBotao(new JButton("Editar"), Color.decode("#F8FAFC"), Color.decode("#334155")));
-        btnPanel.add(estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626")));
-        btnPanel.add(estilarBotao(new JButton("Limpar"), Color.decode("#F8FAFC"), Color.decode("#334155")));
+        btnPanel.add(btnSalvar);
+        btnPanel.add(btnEditar);
+        btnPanel.add(btnExcluir);
+        btnPanel.add(btnLimpar);
 
         gbc.gridy = 10; gbc.insets = new Insets(24, 0, 0, 0);
         formCard.add(btnPanel, gbc);
 
-        // Tabela
+        // Tabela Card
         JPanel tableCard = criarCardTranslucido();
         tableCard.setLayout(new BorderLayout(16, 16));
 
@@ -100,20 +206,30 @@ public class principal extends javax.swing.JFrame {
         tableCard.add(lblTableTitle, BorderLayout.NORTH);
 
         String[] colunas = {"ID", "MATRÍCULA", "NOME", "E-MAIL", "TELEFONE"};
-        Object[][] dados = {
-            {"001", "202400184", "Ana Beatriz Souza", "ana.souza@aluno.edu.br", "(11) 98764-2103"},
-            {"002", "202300927", "Bruno Henrique Lima", "bruno.lima@aluno.edu.br", "(11) 99642-7810"},
-            {"003", "202400356", "Camila Rodrigues Alves", "camila.alves@aluno.edu.br", "(11) 98211-4507"}
+        modelTabelaAlunos = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
-        JTable tabela = criarTabelaEstilizada(dados, colunas);
-        tabela.getColumnModel().getColumn(0).setPreferredWidth(45);
-        tabela.getColumnModel().getColumn(1).setPreferredWidth(95);
-        tabela.getColumnModel().getColumn(2).setPreferredWidth(160);
-        tabela.getColumnModel().getColumn(3).setPreferredWidth(190);
-        tabela.getColumnModel().getColumn(4).setPreferredWidth(110);
+        tabelaAlunos = criarTabelaEstilizadaComModel(modelTabelaAlunos);
+        tabelaAlunos.getColumnModel().getColumn(0).setPreferredWidth(45);
+        tabelaAlunos.getColumnModel().getColumn(1).setPreferredWidth(95);
+        tabelaAlunos.getColumnModel().getColumn(2).setPreferredWidth(160);
+        tabelaAlunos.getColumnModel().getColumn(3).setPreferredWidth(190);
+        tabelaAlunos.getColumnModel().getColumn(4).setPreferredWidth(110);
 
-        JScrollPane scroll = new JScrollPane(tabela);
+        // EVENTO DE SELEÇÃO NA TABELA DE ALUNOS
+        tabelaAlunos.getSelectionModel().addListSelectionListener(e -> {
+            int linha = tabelaAlunos.getSelectedRow();
+            if (linha != -1) {
+                idAlunoSelecionado = Integer.parseInt(tabelaAlunos.getValueAt(linha, 0).toString());
+                txtMatricula.setText(tabelaAlunos.getValueAt(linha, 1).toString());
+                txtNome.setText(tabelaAlunos.getValueAt(linha, 2).toString());
+                txtEmail.setText(tabelaAlunos.getValueAt(linha, 3) != null ? tabelaAlunos.getValueAt(linha, 3).toString() : "");
+                txtTelefone.setText(tabelaAlunos.getValueAt(linha, 4) != null ? tabelaAlunos.getValueAt(linha, 4).toString() : "");
+            }
+        });
+
+        JScrollPane scroll = new JScrollPane(tabelaAlunos);
         scroll.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1));
         scroll.getViewport().setBackground(Color.WHITE);
         tableCard.add(scroll, BorderLayout.CENTER);
@@ -121,97 +237,59 @@ public class principal extends javax.swing.JFrame {
         mainPanel.add(formCard, BorderLayout.WEST);
         mainPanel.add(tableCard, BorderLayout.CENTER);
 
+        atualizarTabelaAlunos();
         return mainPanel;
     }
 
     // ==========================================
-    // 2. ABA AUTORES (Novo do Protótipo)
+    // 2. ABA AUTORES
     // ==========================================
     private JPanel criarPainelAutores() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // Top Header Info
-        JPanel topInfo = new JPanel(new GridLayout(2, 1, 2, 2));
-        topInfo.setBackground(Color.decode("#F1F5F9"));
-        JLabel title = new JLabel("Gestão de Autores");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        title.setForeground(Color.decode("#0F172A"));
-        JLabel sub = new JLabel("Gerencie autores e nacionalidades disponíveis no acervo.");
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        sub.setForeground(Color.decode("#64748B"));
-        topInfo.add(title);
-        topInfo.add(sub);
-        mainPanel.add(topInfo, BorderLayout.NORTH);
-
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBackground(Color.decode("#F1F5F9"));
 
-        // Form Autor
         JPanel formCard = criarCardTranslucido();
         formCard.setPreferredSize(new Dimension(340, 0));
         GridBagConstraints gbc = criarGBCBase();
 
-        adicionarTituloECorpo(formCard, "Dados do autor", "Novo autor\nMantenha o catálogo de autoria organizado.", gbc);
-        adicionarCampoEstilizado(formCard, "Nome do Autor", new JTextField("Conceição Evaristo"), gbc, 2);
-        adicionarCampoEstilizado(formCard, "Nacionalidade", new JTextField("Brasileira"), gbc, 4);
+        adicionarTituloECorpo(formCard, "Dados do autor", "Gerencie o catálogo de autoria.", gbc);
+        adicionarCampoEstilizado(formCard, "Nome do Autor", txtNomeAutor, gbc, 2);
+        adicionarCampoEstilizado(formCard, "Nacionalidade", txtNacionalidadeAutor, gbc, 4);
 
-        JPanel btnPanel = new JPanel(new GridLayout(1, 3, 6, 0));
+        JButton btnSalvar = estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE);
+        btnSalvar.addActionListener(e -> {
+            String nome = txtNomeAutor.getText().trim();
+            String nacionalidade = txtNacionalidadeAutor.getText().trim();
+            if (!nome.isEmpty() && autorDAO.salvarAutor(nome, nacionalidade)) {
+                JOptionPane.showMessageDialog(this, "Autor cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                txtNomeAutor.setText(""); txtNacionalidadeAutor.setText("");
+                atualizarTabelaAutores();
+                carregarAutoresNoComboBox();
+            }
+        });
+
+        JPanel btnPanel = new JPanel(new GridLayout(1, 1, 6, 0));
         btnPanel.setBackground(Color.WHITE);
-        btnPanel.add(estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE));
-        btnPanel.add(estilarBotao(new JButton("Editar"), Color.decode("#F8FAFC"), Color.decode("#334155")));
-        btnPanel.add(estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626")));
+        btnPanel.add(btnSalvar);
 
         gbc.gridy = 6; gbc.insets = new Insets(24, 0, 0, 0);
         formCard.add(btnPanel, gbc);
 
-        // Tabela Autor
         JPanel tableCard = criarCardTranslucido();
         tableCard.setLayout(new BorderLayout(16, 16));
 
-        JPanel searchHeader = new JPanel(new BorderLayout());
-        searchHeader.setBackground(Color.WHITE);
-        JTextField txtSearch = new JTextField("  🔍  Buscar por nome ou nacionalidade...");
-        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtSearch.setPreferredSize(new Dimension(0, 38));
-        txtSearch.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1, true));
-        txtSearch.setForeground(Color.decode("#94A3B8"));
-        
-        JLabel countLabel = new JLabel("7 registros");
-        countLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        countLabel.setForeground(Color.decode("#64748B"));
-        countLabel.setBorder(new EmptyBorder(0, 10, 0, 0));
-
-        searchHeader.add(txtSearch, BorderLayout.CENTER);
-        searchHeader.add(countLabel, BorderLayout.EAST);
-
-        JPanel tableHeaderBox = new JPanel(new BorderLayout(0, 10));
-        tableHeaderBox.setBackground(Color.WHITE);
-        JLabel lblTableTitle = new JLabel("Autores cadastrados");
-        lblTableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        tableHeaderBox.add(lblTableTitle, BorderLayout.NORTH);
-        tableHeaderBox.add(searchHeader, BorderLayout.SOUTH);
-
-        tableCard.add(tableHeaderBox, BorderLayout.NORTH);
-
         String[] colunas = {"ID", "NOME DO AUTOR", "NACIONALIDADE"};
-        Object[][] dados = {
-            {"101", "Clarice Lispector", "Brasileira"},
-            {"102", "Machado de Assis", "Brasileira"},
-            {"103", "George Orwell", "Britânica"},
-            {"104", "Gabriel García Márquez", "Colombiana"},
-            {"105", "Chimamanda Ngozi Adichie", "Nigeriana"},
-            {"106", "José Saramago", "Portuguesa"},
-            {"107", "Virginia Woolf", "Britânica"}
+        modelTabelaAutores = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
-        JTable tabela = criarTabelaEstilizada(dados, colunas);
-        tabela.getColumnModel().getColumn(0).setPreferredWidth(60);
-        tabela.getColumnModel().getColumn(1).setPreferredWidth(250);
-        tabela.getColumnModel().getColumn(2).setPreferredWidth(150);
+        tabelaAutores = criarTabelaEstilizadaComModel(modelTabelaAutores);
 
-        JScrollPane scroll = new JScrollPane(tabela);
+        JScrollPane scroll = new JScrollPane(tabelaAutores);
         scroll.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1));
         scroll.getViewport().setBackground(Color.WHITE);
         tableCard.add(scroll, BorderLayout.CENTER);
@@ -220,108 +298,76 @@ public class principal extends javax.swing.JFrame {
         content.add(tableCard, BorderLayout.CENTER);
 
         mainPanel.add(content, BorderLayout.CENTER);
+        atualizarTabelaAutores();
         return mainPanel;
     }
 
     // ==========================================
-    // 3. ABA LIVROS (Novo do Protótipo)
+    // 3. ABA LIVROS
     // ==========================================
     private JPanel criarPainelLivros() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // Top Header Info
-        JPanel topInfo = new JPanel(new GridLayout(2, 1, 2, 2));
-        topInfo.setBackground(Color.decode("#F1F5F9"));
-        JLabel title = new JLabel("Gestão de Livros");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        title.setForeground(Color.decode("#0F172A"));
-        JLabel sub = new JLabel("Controle títulos, autoria e disponibilidade do inventário.");
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        sub.setForeground(Color.decode("#64748B"));
-        topInfo.add(title);
-        topInfo.add(sub);
-        mainPanel.add(topInfo, BorderLayout.NORTH);
-
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBackground(Color.decode("#F1F5F9"));
 
-        // Form Livro
         JPanel formCard = criarCardTranslucido();
         formCard.setPreferredSize(new Dimension(340, 0));
         GridBagConstraints gbc = criarGBCBase();
 
         adicionarTituloECorpo(formCard, "Dados do livro", "", gbc);
-        adicionarCampoEstilizado(formCard, "Título do Livro", new JTextField("Quarto de Despejo"), gbc, 2);
-        adicionarCampoEstilizado(formCard, "ISBN", new JTextField("978-85-359-2914-7"), gbc, 4);
-        adicionarCampoEstilizado(formCard, "Ano de Publicação", new JTextField("1960"), gbc, 6);
-        adicionarCampoEstilizado(formCard, "Quantidade em Estoque", new JTextField("4"), gbc, 8);
-        
-        JComboBox<String> cbAutor = new JComboBox<>(new String[]{"Carolina Maria de Jesus", "Machado de Assis", "Clarice Lispector"});
-        cbAutor.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        cbAutor.setPreferredSize(new Dimension(0, 36));
-        cbAutor.setBackground(Color.WHITE);
-        adicionarComponenteEstilizado(formCard, "Autor", cbAutor, gbc, 10);
+        adicionarCampoEstilizado(formCard, "Título do Livro", txtTituloLivro, gbc, 2);
+        adicionarCampoEstilizado(formCard, "ISBN", txtIsbnLivro, gbc, 4);
+        adicionarCampoEstilizado(formCard, "Ano de Publicação", txtAnoLivro, gbc, 6);
+        adicionarCampoEstilizado(formCard, "Quantidade em Estoque", txtQtdEstoque, gbc, 8);
 
-        JPanel btnPanel = new JPanel(new GridLayout(1, 4, 6, 0));
+        cbAutorLivro.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        cbAutorLivro.setPreferredSize(new Dimension(0, 36));
+        cbAutorLivro.setBackground(Color.WHITE);
+        adicionarComponenteEstilizado(formCard, "Autor", cbAutorLivro, gbc, 10);
+
+        JButton btnSalvar = estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE);
+        btnSalvar.addActionListener(e -> {
+            if (txtTituloLivro.getText().trim().isEmpty() || cbAutorLivro.getSelectedItem() == null) {
+                JOptionPane.showMessageDialog(this, "Preencha o Título e selecione um Autor!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+            try {
+                String selecaoAutor = (String) cbAutorLivro.getSelectedItem();
+                int autorId = Integer.parseInt(selecaoAutor.split(" - ")[0]);
+                int ano = txtAnoLivro.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtAnoLivro.getText().trim());
+                int estoque = txtQtdEstoque.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtQtdEstoque.getText().trim());
+
+                if (livroDAO.salvarLivro(txtTituloLivro.getText().trim(), txtIsbnLivro.getText().trim(), ano, estoque, autorId)) {
+                    JOptionPane.showMessageDialog(this, "Livro cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                    limparCamposLivro();
+                    atualizarTabelaLivros();
+                    carregarAlunosELivrosEmprestimo();
+                }
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(this, "Ano e Estoque devem ser números inteiros!", "Erro", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
+        JPanel btnPanel = new JPanel(new GridLayout(1, 1, 6, 0));
         btnPanel.setBackground(Color.WHITE);
-        btnPanel.add(estilarBotao(new JButton("Salvar"), Color.decode("#2563EB"), Color.WHITE));
-        btnPanel.add(estilarBotao(new JButton("Editar"), Color.decode("#F8FAFC"), Color.decode("#334155")));
-        btnPanel.add(estilarBotao(new JButton("Excluir"), Color.decode("#FEF2F2"), Color.decode("#DC2626")));
-        btnPanel.add(estilarBotao(new JButton("Limpar"), Color.decode("#F8FAFC"), Color.decode("#334155")));
+        btnPanel.add(btnSalvar);
 
         gbc.gridy = 12; gbc.insets = new Insets(24, 0, 0, 0);
         formCard.add(btnPanel, gbc);
 
-        // Tabela Livros
         JPanel tableCard = criarCardTranslucido();
         tableCard.setLayout(new BorderLayout(16, 16));
 
-        JPanel searchHeader = new JPanel(new BorderLayout());
-        searchHeader.setBackground(Color.WHITE);
-        JTextField txtSearch = new JTextField("  🔍  Buscar por título, ISBN ou autor...");
-        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtSearch.setPreferredSize(new Dimension(0, 38));
-        txtSearch.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1, true));
-        txtSearch.setForeground(Color.decode("#94A3B8"));
-        
-        JLabel countLabel = new JLabel("6 títulos");
-        countLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        countLabel.setForeground(Color.decode("#64748B"));
-        countLabel.setBorder(new EmptyBorder(0, 10, 0, 0));
-
-        searchHeader.add(txtSearch, BorderLayout.CENTER);
-        searchHeader.add(countLabel, BorderLayout.EAST);
-
-        JPanel tableHeaderBox = new JPanel(new BorderLayout(0, 10));
-        tableHeaderBox.setBackground(Color.WHITE);
-        JLabel lblTableTitle = new JLabel("Inventário do acervo");
-        lblTableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        tableHeaderBox.add(lblTableTitle, BorderLayout.NORTH);
-        tableHeaderBox.add(searchHeader, BorderLayout.SOUTH);
-
-        tableCard.add(tableHeaderBox, BorderLayout.NORTH);
-
         String[] colunas = {"ID", "TÍTULO", "ISBN", "ANO", "ESTOQUE", "AUTOR"};
-        Object[][] dados = {
-            {"301", "Dom Casmurro", "978-85-359-027...", "1899", "8", "Machado de Assis"},
-            {"302", "A Hora da Estrela", "978-85-209-294...", "1977", "5", "Clarice Lispector"},
-            {"303", "1984", "978-85-359-148...", "1949", "3", "George Orwell"},
-            {"304", "Cem Anos de Solidão", "978-85-359-155...", "1967", "6", "Gabriel García Márquez"},
-            {"305", "Ensaio sobre a Cegueira", "978-85-359-027...", "1995", "4", "José Saramago"},
-            {"306", "Olhos d'Água", "978-85-7559-32...", "2014", "7", "Conceição Evaristo"}
+        modelTabelaLivros = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
-        JTable tabela = criarTabelaEstilizada(dados, colunas);
-        tabela.getColumnModel().getColumn(0).setPreferredWidth(45);
-        tabela.getColumnModel().getColumn(1).setPreferredWidth(160);
-        tabela.getColumnModel().getColumn(2).setPreferredWidth(120);
-        tabela.getColumnModel().getColumn(3).setPreferredWidth(50);
-        tabela.getColumnModel().getColumn(4).setPreferredWidth(60);
-        tabela.getColumnModel().getColumn(5).setPreferredWidth(140);
-
-        JScrollPane scroll = new JScrollPane(tabela);
+        tabelaLivros = criarTabelaEstilizadaComModel(modelTabelaLivros);
+        JScrollPane scroll = new JScrollPane(tabelaLivros);
         scroll.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1));
         scroll.getViewport().setBackground(Color.WHITE);
         tableCard.add(scroll, BorderLayout.CENTER);
@@ -330,122 +376,81 @@ public class principal extends javax.swing.JFrame {
         content.add(tableCard, BorderLayout.CENTER);
 
         mainPanel.add(content, BorderLayout.CENTER);
+        carregarAutoresNoComboBox();
+        atualizarTabelaLivros();
         return mainPanel;
     }
 
     // ==========================================
-    // 4. ABA EMPRÉSTIMOS (Novo do Protótipo)
+    // 4. ABA EMPRÉSTIMOS
     // ==========================================
     private JPanel criarPainelEmprestimos() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
         mainPanel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // Top Header Info
-        JPanel topInfo = new JPanel(new GridLayout(2, 1, 2, 2));
-        topInfo.setBackground(Color.decode("#F1F5F9"));
-        JLabel title = new JLabel("Controle de Empréstimos");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 20));
-        title.setForeground(Color.decode("#0F172A"));
-        JLabel sub = new JLabel("Registre retiradas, acompanhe prazos e processe devoluções.");
-        sub.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        sub.setForeground(Color.decode("#64748B"));
-        topInfo.add(title);
-        topInfo.add(sub);
-        mainPanel.add(topInfo, BorderLayout.NORTH);
-
         JPanel content = new JPanel(new BorderLayout(20, 20));
         content.setBackground(Color.decode("#F1F5F9"));
 
-        // Form Empréstimo
         JPanel formCard = criarCardTranslucido();
         formCard.setPreferredSize(new Dimension(340, 0));
         GridBagConstraints gbc = criarGBCBase();
 
         adicionarTituloECorpo(formCard, "Novo empréstimo", "", gbc);
 
-        // Banner informativo azul claro
-        JPanel infoBanner = new JPanel(new BorderLayout());
-        infoBanner.setBackground(Color.decode("#EFF6FF"));
-        infoBanner.setBorder(new CompoundBorder(
-                new LineBorder(Color.decode("#BFDBFE"), 1, true),
-                new EmptyBorder(8, 10, 8, 10)
-        ));
-        JLabel infoText = new JLabel("O prazo padrão de devolução é de 14 dias.");
-        infoText.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        infoText.setForeground(Color.decode("#1E40AF"));
-        infoBanner.add(infoText);
+        cbAlunoEmprestimo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cbAlunoEmprestimo.setPreferredSize(new Dimension(0, 36));
+        cbAlunoEmprestimo.setBackground(Color.WHITE);
+        adicionarComponenteEstilizado(formCard, "Aluno", cbAlunoEmprestimo, gbc, 2);
 
-        gbc.gridy = 1; gbc.insets = new Insets(0, 0, 10, 0);
-        formCard.add(infoBanner, gbc);
+        cbLivroEmprestimo.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cbLivroEmprestimo.setPreferredSize(new Dimension(0, 36));
+        cbLivroEmprestimo.setBackground(Color.WHITE);
+        adicionarComponenteEstilizado(formCard, "Livro", cbLivroEmprestimo, gbc, 4);
 
-        JComboBox<String> cbAluno = new JComboBox<>(new String[]{"Ana Beatriz Souza • 202400184", "Bruno Henrique Lima • 202300927"});
-        cbAluno.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        cbAluno.setPreferredSize(new Dimension(0, 36));
-        cbAluno.setBackground(Color.WHITE);
-        adicionarComponenteEstilizado(formCard, "Aluno", cbAluno, gbc, 2);
-
-        JComboBox<String> cbLivro = new JComboBox<>(new String[]{"A Hora da Estrela • 5 disponíveis", "Dom Casmurro • 8 disponíveis"});
-        cbLivro.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-        cbLivro.setPreferredSize(new Dimension(0, 36));
-        cbLivro.setBackground(Color.WHITE);
-        adicionarComponenteEstilizado(formCard, "Livro", cbLivro, gbc, 4);
-
-        adicionarCampoEstilizado(formCard, "Data de Empréstimo", new JTextField("22/09/2026"), gbc, 6);
-        adicionarCampoEstilizado(formCard, "Data de Devolução Prevista", new JTextField("06/10/2026"), gbc, 8);
+        adicionarCampoEstilizado(formCard, "Data de Empréstimo", txtDataEmprestimo, gbc, 6);
+        adicionarCampoEstilizado(formCard, "Data de Devolução Prevista", txtDataDevolucao, gbc, 8);
 
         JButton btnRegistrar = estilarBotao(new JButton("Registrar Empréstimo"), Color.decode("#2563EB"), Color.WHITE);
+        
+        btnRegistrar.addActionListener(e -> {
+            if (cbAlunoEmprestimo.getSelectedItem() == null || cbLivroEmprestimo.getSelectedItem() == null) {
+                JOptionPane.showMessageDialog(this, "Selecione um Aluno e um Livro válidos!", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            try {
+                String selecaoAluno = (String) cbAlunoEmprestimo.getSelectedItem();
+                int alunoId = Integer.parseInt(selecaoAluno.split(" - ")[0]);
+
+                String selecaoLivro = (String) cbLivroEmprestimo.getSelectedItem();
+                int livroId = Integer.parseInt(selecaoLivro.split(" - ")[0]);
+
+                String dataEmp = txtDataEmprestimo.getText().trim();
+                String dataDev = txtDataDevolucao.getText().trim();
+
+                if (emprestimoDAO.salvarEmprestimo(alunoId, livroId, dataEmp, dataDev)) {
+                    JOptionPane.showMessageDialog(this, "Empréstimo registrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
+                    atualizarTabelaEmprestimos();
+                }
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Erro ao processar empréstimo: " + ex.getMessage(), "Erro", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+
         gbc.gridy = 10; gbc.insets = new Insets(20, 0, 0, 0);
         formCard.add(btnRegistrar, gbc);
 
-        // Tabela Empréstimos
         JPanel tableCard = criarCardTranslucido();
         tableCard.setLayout(new BorderLayout(16, 16));
 
-        JPanel searchHeader = new JPanel(new BorderLayout());
-        searchHeader.setBackground(Color.WHITE);
-        JTextField txtSearch = new JTextField("  🔍  Buscar por aluno, livro ou status...");
-        txtSearch.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtSearch.setPreferredSize(new Dimension(0, 38));
-        txtSearch.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1, true));
-        txtSearch.setForeground(Color.decode("#94A3B8"));
-        
-        JLabel countLabel = new JLabel("5 registros");
-        countLabel.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        countLabel.setForeground(Color.decode("#64748B"));
-        countLabel.setBorder(new EmptyBorder(0, 10, 0, 0));
-
-        searchHeader.add(txtSearch, BorderLayout.CENTER);
-        searchHeader.add(countLabel, BorderLayout.EAST);
-
-        JPanel tableHeaderBox = new JPanel(new BorderLayout(0, 10));
-        tableHeaderBox.setBackground(Color.WHITE);
-        JLabel lblTableTitle = new JLabel("Empréstimos atuais");
-        lblTableTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        tableHeaderBox.add(lblTableTitle, BorderLayout.NORTH);
-        tableHeaderBox.add(searchHeader, BorderLayout.SOUTH);
-
-        tableCard.add(tableHeaderBox, BorderLayout.NORTH);
-
-        String[] colunas = {"ID", "ALUNO", "LIVRO", "EMPRÉSTIMO", "PREVISÃO", "STATUS", "AÇÃO"};
-        Object[][] dados = {
-            {"501", "Ana Beatriz Souza", "A Hora da Estrela", "18/09/2026", "02/10/2026", "ATIVO", "Registrar Devolução"},
-            {"502", "Bruno Henrique Lima", "1984", "16/09/2026", "30/09/2026", "DEVOLVIDO", "—"},
-            {"503", "Camila R. Alves", "Olhos d'Água", "20/09/2026", "04/10/2026", "ATIVO", "Registrar Devolução"},
-            {"504", "Diego Martins Costa", "Dom Casmurro", "09/09/2026", "23/09/2026", "DEVOLVIDO", "—"},
-            {"505", "Fernanda O. Reis", "Ensaio sobre a Cegueira", "21/09/2026", "05/10/2026", "ATIVO", "Registrar Devolução"}
+        String[] colunas = {"ID", "ALUNO", "LIVRO", "EMPRÉSTIMO", "PREVISÃO", "STATUS"};
+        modelTabelaEmprestimos = new DefaultTableModel(colunas, 0) {
+            @Override public boolean isCellEditable(int r, int c) { return false; }
         };
 
-        JTable tabela = criarTabelaEstilizada(dados, colunas);
-        tabela.getColumnModel().getColumn(0).setPreferredWidth(40);
-        tabela.getColumnModel().getColumn(1).setPreferredWidth(130);
-        tabela.getColumnModel().getColumn(2).setPreferredWidth(140);
-        tabela.getColumnModel().getColumn(3).setPreferredWidth(85);
-        tabela.getColumnModel().getColumn(4).setPreferredWidth(85);
-        tabela.getColumnModel().getColumn(5).setPreferredWidth(80);
-        tabela.getColumnModel().getColumn(6).setPreferredWidth(120);
-
-        JScrollPane scroll = new JScrollPane(tabela);
+        tabelaEmprestimos = criarTabelaEstilizadaComModel(modelTabelaEmprestimos);
+        JScrollPane scroll = new JScrollPane(tabelaEmprestimos);
         scroll.setBorder(new LineBorder(Color.decode("#E2E8F0"), 1));
         scroll.getViewport().setBackground(Color.WHITE);
         tableCard.add(scroll, BorderLayout.CENTER);
@@ -454,19 +459,99 @@ public class principal extends javax.swing.JFrame {
         content.add(tableCard, BorderLayout.CENTER);
 
         mainPanel.add(content, BorderLayout.CENTER);
+        
+        carregarAlunosELivrosEmprestimo();
+        atualizarTabelaEmprestimos();
         return mainPanel;
     }
 
     // ==========================================
-    // MÉTODOS AUXILIARES DE ESTILIZAÇÃO
+    // MÉTODOS AUXILIARES E CONEXÕES BANCO
     // ==========================================
+    private void carregarAlunosELivrosEmprestimo() {
+        cbAlunoEmprestimo.removeAllItems();
+        List<Object[]> alunos = alunoDAO.listarAlunos();
+        for (Object[] aluno : alunos) {
+            cbAlunoEmprestimo.addItem(aluno[0] + " - " + aluno[2] + " (" + aluno[1] + ")");
+        }
+
+        cbLivroEmprestimo.removeAllItems();
+        List<Object[]> livros = livroDAO.listarLivros();
+        for (Object[] livro : livros) {
+            cbLivroEmprestimo.addItem(livro[0] + " - " + livro[1]);
+        }
+    }
+
+    private void carregarAutoresNoComboBox() {
+        cbAutorLivro.removeAllItems();
+        List<Object[]> autores = autorDAO.listarAutores();
+        for (Object[] autor : autores) {
+            cbAutorLivro.addItem(autor[0] + " - " + autor[1]);
+        }
+    }
+
+    private void atualizarTabelaAlunos() {
+        if (modelTabelaAlunos != null) {
+            modelTabelaAlunos.setRowCount(0);
+            List<Object[]> alunos = alunoDAO.listarAlunos();
+            for (Object[] linha : alunos) {
+                modelTabelaAlunos.addRow(linha);
+            }
+        }
+    }
+
+    private void atualizarTabelaAutores() {
+        if (modelTabelaAutores != null) {
+            modelTabelaAutores.setRowCount(0);
+            List<Object[]> autores = autorDAO.listarAutores();
+            for (Object[] linha : autores) {
+                modelTabelaAutores.addRow(linha);
+            }
+        }
+    }
+
+    private void atualizarTabelaLivros() {
+        if (modelTabelaLivros != null) {
+            modelTabelaLivros.setRowCount(0);
+            List<Object[]> livros = livroDAO.listarLivros();
+            for (Object[] linha : livros) {
+                modelTabelaLivros.addRow(linha);
+            }
+        }
+    }
+
+    private void atualizarTabelaEmprestimos() {
+        if (modelTabelaEmprestimos != null) {
+            modelTabelaEmprestimos.setRowCount(0);
+            List<Object[]> lista = emprestimoDAO.listarEmprestimos();
+            for (Object[] linha : lista) {
+                modelTabelaEmprestimos.addRow(linha);
+            }
+        }
+    }
+
+    private void limparCamposAluno() {
+        idAlunoSelecionado = -1;
+        txtMatricula.setText("");
+        txtNome.setText("");
+        txtEmail.setText("");
+        txtTelefone.setText("");
+        if (tabelaAlunos != null) tabelaAlunos.clearSelection();
+    }
+
+    private void limparCamposLivro() {
+        idLivroSelecionado = -1;
+        txtTituloLivro.setText("");
+        txtIsbnLivro.setText("");
+        txtAnoLivro.setText("");
+        txtQtdEstoque.setText("");
+        if (tabelaLivros != null) tabelaLivros.clearSelection();
+    }
+
     private JPanel criarCardTranslucido() {
         JPanel card = new JPanel(new GridBagLayout());
         card.setBackground(Color.WHITE);
-        card.setBorder(new CompoundBorder(
-                new LineBorder(Color.decode("#E2E8F0"), 1, true),
-                new EmptyBorder(18, 18, 18, 18)
-        ));
+        card.setBorder(new CompoundBorder(new LineBorder(Color.decode("#E2E8F0"), 1, true), new EmptyBorder(18, 18, 18, 18)));
         return card;
     }
 
@@ -475,9 +560,7 @@ public class principal extends javax.swing.JFrame {
         gbc.insets = new Insets(4, 0, 4, 0);
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0;
-        gbc.gridx = 0;
-        gbc.gridy = 0;
-        gbc.gridwidth = 2;
+        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
         return gbc;
     }
 
@@ -503,9 +586,7 @@ public class principal extends javax.swing.JFrame {
     }
 
     private void adicionarComponenteEstilizado(JPanel p, String labelText, JComponent comp, GridBagConstraints gbc, int y) {
-        gbc.gridy = y;
-        gbc.gridx = 0;
-        gbc.gridwidth = 2;
+        gbc.gridy = y; gbc.gridx = 0; gbc.gridwidth = 2;
         gbc.insets = new Insets(4, 0, 2, 0);
 
         JLabel label = new JLabel(labelText);
@@ -519,22 +600,12 @@ public class principal extends javax.swing.JFrame {
         if (comp instanceof JTextField) {
             comp.setFont(new Font("Segoe UI", Font.PLAIN, 13));
             comp.setPreferredSize(new Dimension(0, 36));
-            ((JTextField) comp).setBorder(new CompoundBorder(
-                    new LineBorder(Color.decode("#CBD5E1"), 1, true),
-                    new EmptyBorder(4, 8, 4, 8)
-            ));
+            ((JTextField) comp).setBorder(new CompoundBorder(new LineBorder(Color.decode("#CBD5E1"), 1, true), new EmptyBorder(4, 8, 4, 8)));
         }
         p.add(comp, gbc);
     }
 
-    private JTable criarTabelaEstilizada(Object[][] dados, String[] colunas) {
-        DefaultTableModel model = new DefaultTableModel(dados, colunas) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
+    private JTable criarTabelaEstilizadaComModel(DefaultTableModel model) {
         JTable tabela = new JTable(model);
         tabela.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         tabela.setRowHeight(36);
@@ -566,19 +637,12 @@ public class principal extends javax.swing.JFrame {
         return btn;
     }
 
-   public static void main(String args[]) {
-        try {
-            FlatLightLaf.setup();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        // Inicializa e cria as tabelas do SQLite no banco
+    public static void main(String args[]) {
+        try { FlatLightLaf.setup(); } catch (Exception e) { e.printStackTrace(); }
         conexao.inicializarBanco();
-
-        // Abre a tela principal
         java.awt.EventQueue.invokeLater(() -> new principal().setVisible(true));
     }
+
 
     // <editor-fold defaultstate="collapsed" desc="Generated Code">                                               
 
