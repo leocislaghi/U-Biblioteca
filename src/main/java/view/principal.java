@@ -1,8 +1,11 @@
 package view;
 
+import DAO.AlunoDAO;
+import DAO.autorDAO;
+import DAO.emprestimoDAO;
+import DAO.livroDAO;
+import model.Aluno;
 import com.formdev.flatlaf.FlatLightLaf;
-import model.*;
-
 import java.awt.*;
 import java.util.List;
 import javax.swing.*;
@@ -13,6 +16,11 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 
 public class principal extends javax.swing.JFrame {
+
+    private final AlunoDAO daoAluno = new AlunoDAO();
+    private final autorDAO daoAutor = new autorDAO();
+    private final livroDAO daoLivro = new livroDAO();
+    private final emprestimoDAO daoEmprestimo = new emprestimoDAO();
 
     // --- CAMPOS ABA ALUNOS ---
     private JTextField txtMatricula = new JTextField();
@@ -43,8 +51,8 @@ public class principal extends javax.swing.JFrame {
     // --- CAMPOS ABA EMPRÉSTIMOS ---
     private JComboBox<String> cbAlunoEmprestimo = new JComboBox<>();
     private JComboBox<String> cbLivroEmprestimo = new JComboBox<>();
-    private JTextField txtDataEmprestimo = new JTextField("23/09/2026");
-    private JTextField txtDataDevolucao = new JTextField("07/10/2026");
+    private JTextField txtDataEmprestimo = new JTextField("29/09/2026");
+    private JTextField txtDataDevolucao = new JTextField("13/10/2026");
     private DefaultTableModel modelTabelaEmprestimos;
     private JTable tabelaEmprestimos;
 
@@ -55,7 +63,6 @@ public class principal extends javax.swing.JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // Header Superior
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(Color.decode("#0F172A"));
         header.setPreferredSize(new Dimension(1200, 52));
@@ -64,7 +71,7 @@ public class principal extends javax.swing.JFrame {
         JLabel title = new JLabel("Biblioteca Central   |   SISTEMA DE GESTÃO");
         title.setFont(new Font("Segoe UI", Font.BOLD, 15));
         title.setForeground(Color.WHITE);
-        
+
         JLabel userLabel = new JLabel("MB   Marina • Bibliotecária");
         userLabel.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         userLabel.setForeground(Color.decode("#94A3B8"));
@@ -73,11 +80,10 @@ public class principal extends javax.swing.JFrame {
         header.add(userLabel, BorderLayout.EAST);
         add(header, BorderLayout.NORTH);
 
-        // Sistema de Abas
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.setFont(new Font("Segoe UI", Font.BOLD, 13));
         tabbedPane.setBackground(Color.decode("#F1F5F9"));
-        
+
         tabbedPane.addTab("   Alunos   ", criarPainelAlunos());
         tabbedPane.addTab("   Autores   ", criarPainelAutores());
         tabbedPane.addTab("   Livros   ", criarPainelLivros());
@@ -97,9 +103,6 @@ public class principal extends javax.swing.JFrame {
         add(tabbedPane, BorderLayout.CENTER);
     }
 
-    // ==========================================
-    // 1. ABA ALUNOS
-    // ==========================================
     private JPanel criarPainelAlunos() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
@@ -131,7 +134,9 @@ public class principal extends javax.swing.JFrame {
                 return;
             }
 
-            if (alunoDAO.salvarAluno(matricula, nome, email, telefone)) {
+            Aluno aluno = new Aluno(matricula, nome, email, telefone);
+
+            if (daoAluno.salvarAluno(aluno)) {
                 JOptionPane.showMessageDialog(this, "Aluno cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAluno();
                 atualizarTabelaAlunos();
@@ -144,7 +149,10 @@ public class principal extends javax.swing.JFrame {
                 JOptionPane.showMessageDialog(this, "Selecione um aluno na tabela para editar!", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            if (alunoDAO.editarAluno(idAlunoSelecionado, txtMatricula.getText().trim(), txtNome.getText().trim(), txtEmail.getText().trim(), txtTelefone.getText().trim())) {
+
+            Aluno aluno = new Aluno(idAlunoSelecionado, txtMatricula.getText().trim(), txtNome.getText().trim(), txtEmail.getText().trim(), txtTelefone.getText().trim());
+
+            if (daoAluno.editarAluno(aluno)) {
                 JOptionPane.showMessageDialog(this, "Aluno atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAluno();
                 atualizarTabelaAlunos();
@@ -158,7 +166,7 @@ public class principal extends javax.swing.JFrame {
                 return;
             }
             int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este aluno?", "Confirmação", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION && alunoDAO.excluirAluno(idAlunoSelecionado)) {
+            if (confirm == JOptionPane.YES_OPTION && daoAluno.excluirAluno(idAlunoSelecionado)) {
                 JOptionPane.showMessageDialog(this, "Aluno excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAluno();
                 atualizarTabelaAlunos();
@@ -215,9 +223,6 @@ public class principal extends javax.swing.JFrame {
         return mainPanel;
     }
 
-    // ==========================================
-    // 2. ABA AUTORES
-    // ==========================================
     private JPanel criarPainelAutores() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
@@ -242,7 +247,7 @@ public class principal extends javax.swing.JFrame {
         btnSalvar.addActionListener(e -> {
             String nome = txtNomeAutor.getText().trim();
             String nacionalidade = txtNacionalidadeAutor.getText().trim();
-            if (!nome.isEmpty() && autorDAO.salvarAutor(nome, nacionalidade)) {
+            if (!nome.isEmpty() && daoAutor.salvarAutor(nome, nacionalidade)) {
                 JOptionPane.showMessageDialog(this, "Autor cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAutor();
                 atualizarTabelaAutores();
@@ -255,7 +260,7 @@ public class principal extends javax.swing.JFrame {
                 JOptionPane.showMessageDialog(this, "Selecione um autor na tabela para editar!", "Aviso", JOptionPane.WARNING_MESSAGE);
                 return;
             }
-            if (autorDAO.editarAutor(idAutorSelecionado, txtNomeAutor.getText().trim(), txtNacionalidadeAutor.getText().trim())) {
+            if (daoAutor.editarAutor(idAutorSelecionado, txtNomeAutor.getText().trim(), txtNacionalidadeAutor.getText().trim())) {
                 JOptionPane.showMessageDialog(this, "Autor atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAutor();
                 atualizarTabelaAutores();
@@ -269,7 +274,7 @@ public class principal extends javax.swing.JFrame {
                 return;
             }
             int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este autor?", "Confirmação", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION && autorDAO.excluirAutor(idAutorSelecionado)) {
+            if (confirm == JOptionPane.YES_OPTION && daoAutor.excluirAutor(idAutorSelecionado)) {
                 JOptionPane.showMessageDialog(this, "Autor excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposAutor();
                 atualizarTabelaAutores();
@@ -320,9 +325,6 @@ public class principal extends javax.swing.JFrame {
         return mainPanel;
     }
 
-    // ==========================================
-    // 3. ABA LIVROS
-    // ==========================================
     private JPanel criarPainelLivros() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
@@ -362,7 +364,7 @@ public class principal extends javax.swing.JFrame {
                 int ano = txtAnoLivro.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtAnoLivro.getText().trim());
                 int estoque = txtQtdEstoque.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtQtdEstoque.getText().trim());
 
-                if (livroDAO.salvarLivro(txtTituloLivro.getText().trim(), txtIsbnLivro.getText().trim(), ano, estoque, autorId)) {
+                if (daoLivro.salvarLivro(txtTituloLivro.getText().trim(), txtIsbnLivro.getText().trim(), ano, estoque, autorId)) {
                     JOptionPane.showMessageDialog(this, "Livro cadastrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                     limparCamposLivro();
                     atualizarTabelaLivros();
@@ -384,7 +386,7 @@ public class principal extends javax.swing.JFrame {
                 int ano = txtAnoLivro.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtAnoLivro.getText().trim());
                 int estoque = txtQtdEstoque.getText().trim().isEmpty() ? 0 : Integer.parseInt(txtQtdEstoque.getText().trim());
 
-                if (livroDAO.editarLivro(idLivroSelecionado, txtTituloLivro.getText().trim(), txtIsbnLivro.getText().trim(), ano, estoque, autorId)) {
+                if (daoLivro.editarLivro(idLivroSelecionado, txtTituloLivro.getText().trim(), txtIsbnLivro.getText().trim(), ano, estoque, autorId)) {
                     JOptionPane.showMessageDialog(this, "Livro atualizado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                     limparCamposLivro();
                     atualizarTabelaLivros();
@@ -401,7 +403,7 @@ public class principal extends javax.swing.JFrame {
                 return;
             }
             int confirm = JOptionPane.showConfirmDialog(this, "Deseja realmente excluir este livro?", "Confirmação", JOptionPane.YES_NO_OPTION);
-            if (confirm == JOptionPane.YES_OPTION && livroDAO.excluirLivro(idLivroSelecionado)) {
+            if (confirm == JOptionPane.YES_OPTION && daoLivro.excluirLivro(idLivroSelecionado)) {
                 JOptionPane.showMessageDialog(this, "Livro excluído com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                 limparCamposLivro();
                 atualizarTabelaLivros();
@@ -455,9 +457,6 @@ public class principal extends javax.swing.JFrame {
         return mainPanel;
     }
 
-    // ==========================================
-    // 4. ABA EMPRÉSTIMOS
-    // ==========================================
     private JPanel criarPainelEmprestimos() {
         JPanel mainPanel = new JPanel(new BorderLayout(20, 20));
         mainPanel.setBackground(Color.decode("#F1F5F9"));
@@ -486,7 +485,7 @@ public class principal extends javax.swing.JFrame {
         adicionarCampoEstilizado(formCard, "Data de Devolução Prevista", txtDataDevolucao, gbc, 8);
 
         JButton btnRegistrar = estilarBotao(new JButton("Registrar Empréstimo"), Color.decode("#2563EB"), Color.WHITE);
-        
+
         btnRegistrar.addActionListener(e -> {
             if (cbAlunoEmprestimo.getSelectedItem() == null || cbLivroEmprestimo.getSelectedItem() == null) {
                 JOptionPane.showMessageDialog(this, "Selecione um Aluno e um Livro válidos!", "Aviso", JOptionPane.WARNING_MESSAGE);
@@ -503,7 +502,7 @@ public class principal extends javax.swing.JFrame {
                 String dataEmp = txtDataEmprestimo.getText().trim();
                 String dataDev = txtDataDevolucao.getText().trim();
 
-                if (emprestimoDAO.salvarEmprestimo(alunoId, livroId, dataEmp, dataDev)) {
+                if (daoEmprestimo.salvarEmprestimo(alunoId, livroId, dataEmp, dataDev)) {
                     JOptionPane.showMessageDialog(this, "Empréstimo registrado com sucesso!", "Sucesso", JOptionPane.INFORMATION_MESSAGE);
                     atualizarTabelaEmprestimos();
                 }
@@ -533,24 +532,21 @@ public class principal extends javax.swing.JFrame {
         content.add(tableCard, BorderLayout.CENTER);
 
         mainPanel.add(content, BorderLayout.CENTER);
-        
+
         carregarAlunosELivrosEmprestimo();
         atualizarTabelaEmprestimos();
         return mainPanel;
     }
 
-    // ==========================================
-    // MÉTODOS AUXILIARES
-    // ==========================================
     private void carregarAlunosELivrosEmprestimo() {
         cbAlunoEmprestimo.removeAllItems();
-        List<Object[]> alunos = alunoDAO.listarAlunos();
+        List<Object[]> alunos = daoAluno.listarAlunos();
         for (Object[] aluno : alunos) {
             cbAlunoEmprestimo.addItem(aluno[0] + " - " + aluno[2] + " (" + aluno[1] + ")");
         }
 
         cbLivroEmprestimo.removeAllItems();
-        List<Object[]> livros = livroDAO.listarLivros();
+        List<Object[]> livros = daoLivro.listarLivros();
         for (Object[] livro : livros) {
             cbLivroEmprestimo.addItem(livro[0] + " - " + livro[1]);
         }
@@ -558,7 +554,7 @@ public class principal extends javax.swing.JFrame {
 
     private void carregarAutoresNoComboBox() {
         cbAutorLivro.removeAllItems();
-        List<Object[]> autores = autorDAO.listarAutores();
+        List<Object[]> autores = daoAutor.listarAutores();
         for (Object[] autor : autores) {
             cbAutorLivro.addItem(autor[0] + " - " + autor[1]);
         }
@@ -567,7 +563,7 @@ public class principal extends javax.swing.JFrame {
     private void atualizarTabelaAlunos() {
         if (modelTabelaAlunos != null) {
             modelTabelaAlunos.setRowCount(0);
-            List<Object[]> alunos = alunoDAO.listarAlunos();
+            List<Object[]> alunos = daoAluno.listarAlunos();
             for (Object[] linha : alunos) {
                 modelTabelaAlunos.addRow(linha);
             }
@@ -577,7 +573,7 @@ public class principal extends javax.swing.JFrame {
     private void atualizarTabelaAutores() {
         if (modelTabelaAutores != null) {
             modelTabelaAutores.setRowCount(0);
-            List<Object[]> autores = autorDAO.listarAutores();
+            List<Object[]> autores = daoAutor.listarAutores();
             for (Object[] linha : autores) {
                 modelTabelaAutores.addRow(linha);
             }
@@ -587,7 +583,7 @@ public class principal extends javax.swing.JFrame {
     private void atualizarTabelaLivros() {
         if (modelTabelaLivros != null) {
             modelTabelaLivros.setRowCount(0);
-            List<Object[]> livros = livroDAO.listarLivros();
+            List<Object[]> livros = daoLivro.listarLivros();
             for (Object[] linha : livros) {
                 modelTabelaLivros.addRow(linha);
             }
@@ -597,7 +593,7 @@ public class principal extends javax.swing.JFrame {
     private void atualizarTabelaEmprestimos() {
         if (modelTabelaEmprestimos != null) {
             modelTabelaEmprestimos.setRowCount(0);
-            List<Object[]> lista = emprestimoDAO.listarEmprestimos();
+            List<Object[]> lista = daoEmprestimo.listarEmprestimos();
             for (Object[] linha : lista) {
                 modelTabelaEmprestimos.addRow(linha);
             }
@@ -686,6 +682,16 @@ public class principal extends javax.swing.JFrame {
         p.add(comp, gbc);
     }
 
+    private JButton estilarBotao(JButton btn, Color bg, Color fg) {
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btn.setBackground(bg);
+        btn.setForeground(fg);
+        btn.setFocusPainted(false);
+        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btn.setPreferredSize(new Dimension(0, 36));
+        return btn;
+    }
+
     private JTable criarTabelaEstilizadaComModel(DefaultTableModel model) {
         JTable tabela = new JTable(model);
         tabela.setFont(new Font("Segoe UI", Font.PLAIN, 12));
@@ -695,33 +701,25 @@ public class principal extends javax.swing.JFrame {
         tabela.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 11));
         tabela.getTableHeader().setBackground(Color.decode("#0F172A"));
         tabela.getTableHeader().setForeground(Color.WHITE);
-        tabela.getTableHeader().setPreferredSize(new Dimension(0, 36));
+        tabela.getTableHeader().setPreferredSize(new Dimension(0, 38));
 
         DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
         centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-        tabela.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
+        tabela.setDefaultRenderer(Object.class, centerRenderer);
 
         return tabela;
     }
 
-    private JButton estilarBotao(JButton btn, Color bg, Color fg) {
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 11));
-        btn.setBackground(bg);
-        btn.setForeground(fg);
-        btn.setFocusPainted(false);
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btn.setPreferredSize(new Dimension(0, 34));
-        btn.setBorder(new CompoundBorder(
-                new LineBorder(bg.equals(Color.decode("#F8FAFC")) ? Color.decode("#CBD5E1") : bg, 1, true),
-                new EmptyBorder(4, 6, 4, 6)
-        ));
-        return btn;
-    }
-
     public static void main(String args[]) {
-        try { FlatLightLaf.setup(); } catch (Exception e) { e.printStackTrace(); }
-        conexao.inicializarBanco();
-        java.awt.EventQueue.invokeLater(() -> new principal().setVisible(true));
+        try {
+            UIManager.setLookAndFeel(new FlatLightLaf());
+        } catch (Exception ex) {
+            System.err.println("Falha ao inicializar FlatLaf");
+        }
+
+        EventQueue.invokeLater(() -> {
+            new principal().setVisible(true);
+        });
     }
 
 
